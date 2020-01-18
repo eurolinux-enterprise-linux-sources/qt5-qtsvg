@@ -1,2 +1,2 @@
 TEMPLATE = subdirs
-qtHaveModule(widgets): SUBDIRS += bearercloud
+qtHaveModule(widgets):qtHaveModule(network): SUBDIRS += bearercloud

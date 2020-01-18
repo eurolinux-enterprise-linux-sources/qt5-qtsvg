@@ -1,31 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt SVG module of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -61,17 +67,17 @@ class QTextCharFormat;
 class Q_SVG_PRIVATE_EXPORT QSvgAnimation : public QSvgNode
 {
 public:
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
 };
 
 class Q_SVG_PRIVATE_EXPORT QSvgArc : public QSvgNode
 {
 public:
     QSvgArc(QSvgNode *parent, const QPainterPath &path);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     QPainterPath m_path;
 };
@@ -80,9 +86,9 @@ class Q_SVG_PRIVATE_EXPORT QSvgEllipse : public QSvgNode
 {
 public:
     QSvgEllipse(QSvgNode *parent, const QRectF &rect);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     QRectF m_bounds;
 };
@@ -91,7 +97,7 @@ class Q_SVG_PRIVATE_EXPORT QSvgCircle : public QSvgEllipse
 {
 public:
     QSvgCircle(QSvgNode *parent, const QRectF &rect) : QSvgEllipse(parent, rect) { }
-    virtual Type type() const;
+    Type type() const override;
 };
 
 class Q_SVG_PRIVATE_EXPORT QSvgImage : public QSvgNode
@@ -99,9 +105,9 @@ class Q_SVG_PRIVATE_EXPORT QSvgImage : public QSvgNode
 public:
     QSvgImage(QSvgNode *parent, const QImage &image,
               const QRect &bounds);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     QImage m_image;
     QRect  m_bounds;
@@ -111,9 +117,9 @@ class Q_SVG_PRIVATE_EXPORT QSvgLine : public QSvgNode
 {
 public:
     QSvgLine(QSvgNode *parent, const QLineF &line);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     QLineF m_line;
 };
@@ -122,9 +128,9 @@ class Q_SVG_PRIVATE_EXPORT QSvgPath : public QSvgNode
 {
 public:
     QSvgPath(QSvgNode *parent, const QPainterPath &qpath);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 
     QPainterPath *qpath() {
         return &m_path;
@@ -137,9 +143,9 @@ class Q_SVG_PRIVATE_EXPORT QSvgPolygon : public QSvgNode
 {
 public:
     QSvgPolygon(QSvgNode *parent, const QPolygonF &poly);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     QPolygonF m_poly;
 };
@@ -148,9 +154,9 @@ class Q_SVG_PRIVATE_EXPORT QSvgPolyline : public QSvgNode
 {
 public:
     QSvgPolyline(QSvgNode *parent, const QPolygonF &poly);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     QPolygonF m_poly;
 };
@@ -159,9 +165,9 @@ class Q_SVG_PRIVATE_EXPORT QSvgRect : public QSvgNode
 {
 public:
     QSvgRect(QSvgNode *paren, const QRectF &rect, int rx=0, int ry=0);
-    virtual Type type() const;
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    Type type() const override;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     QRectF m_rect;
     int m_rx, m_ry;
@@ -182,15 +188,15 @@ public:
     ~QSvgText();
     void setTextArea(const QSizeF &size);
 
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
 
     void addTspan(QSvgTspan *tspan) {m_tspans.append(tspan);}
     void addText(const QString &text);
     void addLineBreak() {m_tspans.append(LINEBREAK);}
     void setWhitespaceMode(WhitespaceMode mode) {m_mode = mode;}
 
-    //virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    //QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 private:
     static QSvgTspan * const LINEBREAK;
 
@@ -214,8 +220,8 @@ public:
     {
     }
     ~QSvgTspan() { };
-    virtual Type type() const {return TSPAN;}
-    virtual void draw(QPainter *, QSvgExtraStates &) {Q_ASSERT(!"Tspans should be drawn through QSvgText::draw().");}
+    Type type() const override { return TSPAN; }
+    void draw(QPainter *, QSvgExtraStates &) override { Q_ASSERT(!"Tspans should be drawn through QSvgText::draw()."); }
     void addText(const QString &text) {m_text += text;}
     const QString &text() const {return m_text;}
     bool isTspan() const {return m_isTspan;}
@@ -231,9 +237,9 @@ class QSvgUse : public QSvgNode
 {
 public:
     QSvgUse(const QPointF &start, QSvgNode *parent, QSvgNode *link);
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
-    virtual QRectF bounds(QPainter *p, QSvgExtraStates &states) const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
+    QRectF bounds(QPainter *p, QSvgExtraStates &states) const override;
 
 private:
     QSvgNode *m_link;
@@ -243,8 +249,8 @@ private:
 class QSvgVideo : public QSvgNode
 {
 public:
-    virtual void draw(QPainter *p, QSvgExtraStates &states);
-    virtual Type type() const;
+    void draw(QPainter *p, QSvgExtraStates &states) override;
+    Type type() const override;
 };
 
 QT_END_NAMESPACE

@@ -1,31 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt SVG module of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -49,6 +55,7 @@
 #include "qvector.h"
 #include "qfileinfo.h"
 #include "qfile.h"
+#include "qdir.h"
 #include "qdebug.h"
 #include "qmath.h"
 #include "qnumeric.h"
@@ -59,8 +66,40 @@
 
 QT_BEGIN_NAMESPACE
 
+Q_LOGGING_CATEGORY(lcSvgHandler, "qt.svg")
+
 static const char *qt_inherit_text = "inherit";
 #define QT_INHERIT QLatin1String(qt_inherit_text)
+
+static QByteArray prefixMessage(const QByteArray &msg, const QXmlStreamReader *r)
+{
+    QByteArray result;
+    if (r) {
+        if (const QFile *file = qobject_cast<const QFile *>(r->device()))
+            result.append(QFile::encodeName(QDir::toNativeSeparators(file->fileName())));
+        else
+            result.append(QByteArrayLiteral("<input>"));
+        result.append(':');
+        result.append(QByteArray::number(r->lineNumber()));
+        if (const qint64 column = r->columnNumber()) {
+            result.append(':');
+            result.append(QByteArray::number(column));
+        }
+        result.append(QByteArrayLiteral(": "));
+    }
+    result.append(msg);
+    return result;
+}
+
+static inline QByteArray msgProblemParsing(const QString &localName, const QXmlStreamReader *r)
+{
+    return prefixMessage(QByteArrayLiteral("Problem parsing ") + localName.toLocal8Bit(), r);
+}
+
+static inline QByteArray msgCouldNotResolveProperty(const QString &id, const QXmlStreamReader *r)
+{
+    return prefixMessage(QByteArrayLiteral("Could not resolve property: ") + id.toLocal8Bit(), r);
+}
 
 // ======== duplicated from qcolor_p
 
@@ -283,6 +322,8 @@ QSvgAttributes::QSvgAttributes(const QXmlStreamAttributes &xmlAttributes, QSvgHa
            }
         }
     }
+#else
+    Q_UNUSED(handler);
 #endif // QT_NO_CSSPARSER
 
     for (int i = 0; i < xmlAttributes.count(); ++i) {
@@ -391,6 +432,8 @@ QSvgAttributes::QSvgAttributes(const QXmlStreamAttributes &xmlAttributes, QSvgHa
 
 }
 
+#ifndef QT_NO_CSSPARSER
+
 static const char * QSvgStyleSelector_nodeString[] = {
     "svg",
     "g",
@@ -412,8 +455,6 @@ static const char * QSvgStyleSelector_nodeString[] = {
     "use",
     "video"
 };
-
-#ifndef QT_NO_CSSPARSER
 
 class QSvgStyleSelector : public QCss::StyleSelector
 {
@@ -454,7 +495,7 @@ public:
         return st;
     }
 
-    virtual bool nodeNameEquals(NodePtr node, const QString& nodeName) const
+    bool nodeNameEquals(NodePtr node, const QString& nodeName) const override
     {
         QSvgNode *n = svgNode(node);
         if (!n)
@@ -462,7 +503,7 @@ public:
         QString name = nodeToName(n);
         return QString::compare(name, nodeName, Qt::CaseInsensitive) == 0;
     }
-    virtual QString attribute(NodePtr node, const QString &name) const
+    QString attribute(NodePtr node, const QString &name) const override
     {
         QSvgNode *n = svgNode(node);
         if ((!n->nodeId().isEmpty() && (name == QLatin1String("id") ||
@@ -472,14 +513,14 @@ public:
             return n->xmlClass();
         return QString();
     }
-    virtual bool hasAttributes(NodePtr node) const
+    bool hasAttributes(NodePtr node) const override
     {
         QSvgNode *n = svgNode(node);
         return (n &&
                 (!n->nodeId().isEmpty() || !n->xmlClass().isEmpty()));
     }
 
-    virtual QStringList nodeIds(NodePtr node) const
+    QStringList nodeIds(NodePtr node) const override
     {
         QSvgNode *n = svgNode(node);
         QString nid;
@@ -489,7 +530,7 @@ public:
         return lst;
     }
 
-    virtual QStringList nodeNames(NodePtr node) const
+    QStringList nodeNames(NodePtr node) const override
     {
         QSvgNode *n = svgNode(node);
         if (n)
@@ -497,12 +538,12 @@ public:
         return QStringList();
     }
 
-    virtual bool isNullNode(NodePtr node) const
+    bool isNullNode(NodePtr node) const override
     {
         return !node.ptr;
     }
 
-    virtual NodePtr parentNode(NodePtr node) const
+    NodePtr parentNode(NodePtr node) const override
     {
         QSvgNode *n = svgNode(node);
         NodePtr newNode;
@@ -516,7 +557,7 @@ public:
         }
         return newNode;
     }
-    virtual NodePtr previousSiblingNode(NodePtr node) const
+    NodePtr previousSiblingNode(NodePtr node) const override
     {
         NodePtr newNode;
         newNode.ptr = 0;
@@ -532,14 +573,14 @@ public:
         }
         return newNode;
     }
-    virtual NodePtr duplicateNode(NodePtr node) const
+    NodePtr duplicateNode(NodePtr node) const override
     {
         NodePtr n;
         n.ptr = node.ptr;
         n.id  = node.id;
         return n;
     }
-    virtual void freeNode(NodePtr node) const
+    void freeNode(NodePtr node) const override
     {
         Q_UNUSED(node);
     }
@@ -1102,9 +1143,9 @@ static QMatrix parseTransformationMatrix(const QStringRef &value)
         if(state == Matrix) {
             if(points.count() != 6)
                 goto error;
-            matrix = matrix * QMatrix(points[0], points[1],
-                                      points[2], points[3],
-                                      points[4], points[5]);
+            matrix = QMatrix(points[0], points[1],
+                             points[2], points[3],
+                             points[4], points[5]) * matrix;
         } else if (state == Translate) {
             if (points.count() == 1)
                 matrix.translate(points[0], 0);
@@ -1871,13 +1912,12 @@ static void parseCSStoXMLAttrs(const QVector<QCss::Declaration> &declarations,
             continue;
         QCss::Value val = decl.d->values.first();
         QString valueStr;
-        if (decl.d->values.count() != 1) {
-            for (int i=0; i<decl.d->values.count(); ++i) {
-                const QString &value = decl.d->values[i].toString();
-                if (value.isEmpty())
+        const int valCount = decl.d->values.count();
+        if (valCount != 1) {
+            for (int i = 0; i < valCount; ++i) {
+                valueStr += decl.d->values[i].toString();
+                if (i + 1 < valCount)
                     valueStr += QLatin1Char(',');
-                else
-                    valueStr += value;
             }
         } else {
             valueStr = val.toString();
@@ -2686,11 +2726,11 @@ static QSvgNode *createImageNode(QSvgNode *parent,
 
     filename = filename.trimmed();
     if (filename.isEmpty()) {
-        qWarning() << "QSvgHandler: Image filename is empty";
+        qCWarning(lcSvgHandler) << "QSvgHandler: Image filename is empty";
         return 0;
     }
     if (nwidth <= 0 || nheight <= 0) {
-        qWarning() << "QSvgHandler: Width or height for" << filename << "image was not greater than 0";
+        qCWarning(lcSvgHandler) << "QSvgHandler: Width or height for" << filename << "image was not greater than 0";
         return 0;
     }
 
@@ -2703,7 +2743,7 @@ static QSvgNode *createImageNode(QSvgNode *parent,
             QByteArray data = QByteArray::fromBase64(dataStr.toLatin1());
             image = QImage::fromData(data);
         } else {
-            qDebug()<<"QSvgHandler::createImageNode: Unrecognized inline image format!";
+            qCDebug(lcSvgHandler) << "QSvgHandler::createImageNode: Unrecognized inline image format!";
         }
     } else
         image = QImage(filename);
@@ -3160,7 +3200,7 @@ static QSvgNode *createSvgNode(QSvgNode *parent,
     QString baseProfile = attributes.value(QLatin1String("baseProfile")).toString();
 #if 0
     if (baseProfile.isEmpty() && baseProfile != QLatin1String("tiny")) {
-        qWarning("Profile is %s while we only support tiny!",
+        qCWarning(lcSvgHandler, "Profile is %s while we only support tiny!",
                  qPrintable(baseProfile));
     }
 #endif
@@ -3326,7 +3366,7 @@ static QSvgNode *createUseNode(QSvgNode *parent,
         }
     }
 
-    qWarning("link %s hasn't been detected!", qPrintable(linkId));
+    qCWarning(lcSvgHandler, "link %s hasn't been detected!", qPrintable(linkId));
     return 0;
 }
 
@@ -3613,8 +3653,10 @@ bool QSvgHandler::startElement(const QString &localName,
     } else if (xmlSpace == QLatin1String("default")) {
         m_whitespaceMode.push(QSvgText::Default);
     } else {
-        qWarning() << QString::fromLatin1("\"%1\" is an invalid value for attribute xml:space. "
-                                          "Valid values are \"preserve\" and \"default\".").arg(xmlSpace.toString());
+        const QByteArray msg = '"' + xmlSpace.toString().toLocal8Bit()
+                               + "\" is an invalid value for attribute xml:space. "
+                                 "Valid values are \"preserve\" and \"default\".";
+        qCWarning(lcSvgHandler, "%s", prefixMessage(msg, xml).constData());
         m_whitespaceMode.push(QSvgText::Default);
     }
 
@@ -3670,13 +3712,15 @@ bool QSvgHandler::startElement(const QString &localName,
                 if (node->type() == QSvgNode::TSPAN) {
                     static_cast<QSvgText *>(m_nodes.top())->addTspan(static_cast<QSvgTspan *>(node));
                 } else {
-                    qWarning("\'text\' or \'textArea\' element contains invalid element type.");
+                    const QByteArray msg = QByteArrayLiteral("\'text\' or \'textArea\' element contains invalid element type.");
+                    qCWarning(lcSvgHandler, "%s", prefixMessage(msg, xml).constData());
                     delete node;
                     node = 0;
                 }
                 break;
             default:
-                qWarning("Could not add child element to parent element because the types are incorrect.");
+                const QByteArray msg = QByteArrayLiteral("Could not add child element to parent element because the types are incorrect.");
+                qCWarning(lcSvgHandler, "%s", prefixMessage(msg, xml).constData());
                 delete node;
                 node = 0;
                 break;
@@ -3697,25 +3741,24 @@ bool QSvgHandler::startElement(const QString &localName,
         }
     } else if (ParseMethod method = findUtilFactory(localName)) {
         Q_ASSERT(!m_nodes.isEmpty());
-        if (!method(m_nodes.top(), attributes, this)) {
-            qWarning("Problem parsing %s", qPrintable(localName));
-        }
+        if (!method(m_nodes.top(), attributes, this))
+            qCWarning(lcSvgHandler, "%s", msgProblemParsing(localName, xml).constData());
     } else if (StyleFactoryMethod method = findStyleFactoryMethod(localName)) {
         QSvgStyleProperty *prop = method(m_nodes.top(), attributes, this);
         if (prop) {
             m_style = prop;
             m_nodes.top()->appendStyleProperty(prop, someId(attributes));
         } else {
-            qWarning("Could not parse node: %s", qPrintable(localName));
+            const QByteArray msg = QByteArrayLiteral("Could not parse node: ") + localName.toLocal8Bit();
+            qCWarning(lcSvgHandler, "%s", prefixMessage(msg, xml).constData());
         }
     } else if (StyleParseMethod method = findStyleUtilFactoryMethod(localName)) {
         if (m_style) {
-            if (!method(m_style, attributes, this)) {
-                qWarning("Problem parsing %s", qPrintable(localName));
-            }
+            if (!method(m_style, attributes, this))
+                qCWarning(lcSvgHandler, "%s", msgProblemParsing(localName, xml).constData());
         }
     } else {
-        //qWarning()<<"Skipping unknown element!"<<namespaceURI<<"::"<<localName;
+        //qCWarning(lcSvgHandler) <<"Skipping unknown element!"<<namespaceURI<<"::"<<localName;
         m_skipNodes.push(Unknown);
         return true;
     }
@@ -3774,7 +3817,7 @@ void QSvgHandler::resolveGradients(QSvgNode *node)
             if (style) {
                 fill->setFillStyle(style);
             } else {
-                qWarning("Could not resolve property : %s", qPrintable(id));
+                qCWarning(lcSvgHandler, "%s", msgCouldNotResolveProperty(id, xml).constData());
                 fill->setBrush(Qt::NoBrush);
             }
         }
@@ -3786,7 +3829,7 @@ void QSvgHandler::resolveGradients(QSvgNode *node)
             if (style) {
                 stroke->setStyle(style);
             } else {
-                qWarning("Could not resolve property : %s", qPrintable(id));
+                qCWarning(lcSvgHandler, "%s", msgCouldNotResolveProperty(id, xml).constData());
                 stroke->setStroke(Qt::NoBrush);
             }
         }

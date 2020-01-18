@@ -1,31 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -39,6 +45,8 @@
 #include "qsvgrenderer.h"
 #include "qpixmapcache.h"
 #include "qfileinfo.h"
+#include <qmimedatabase.h>
+#include <qmimetype.h>
 #include <QAtomicInt>
 #include "qdebug.h"
 #include <private/qguiapplication_p.h>
@@ -61,7 +69,7 @@ public:
     QString pmcKey(const QSize &size, QIcon::Mode mode, QIcon::State state)
         { return QLatin1String("$qt_svgicon_")
                  + QString::number(serialNum, 16).append(QLatin1Char('_'))
-                 + QString::number((((((size.width()<<11)|size.height())<<11)|mode)<<4)|state, 16); }
+                 + QString::number((((((qint64(size.width()) << 11) | size.height()) << 11) | mode) << 4) | state, 16); }
 
     void stepSerialNum()
         { serialNum = lastSerialNum.fetchAndAddRelaxed(1); }
@@ -195,30 +203,49 @@ void QSvgIconEngine::addPixmap(const QPixmap &pixmap, QIcon::Mode mode,
     d->addedPixmaps->insert(d->hashKey(mode, state), pixmap);
 }
 
+enum FileType { OtherFile, SvgFile, CompressedSvgFile };
+
+static FileType fileType(const QFileInfo &fi)
+{
+    const QString &abs = fi.absoluteFilePath();
+    if (abs.endsWith(QLatin1String(".svg"), Qt::CaseInsensitive))
+        return SvgFile;
+    if (abs.endsWith(QLatin1String(".svgz"), Qt::CaseInsensitive)
+        || abs.endsWith(QLatin1String(".svg.gz"), Qt::CaseInsensitive)) {
+        return CompressedSvgFile;
+    }
+#ifndef QT_NO_MIMETYPE
+    const QString &mimeTypeName = QMimeDatabase().mimeTypeForFile(fi).name();
+    if (mimeTypeName == QLatin1String("image/svg+xml"))
+        return SvgFile;
+    if (mimeTypeName == QLatin1String("image/svg+xml-compressed"))
+        return CompressedSvgFile;
+#endif // !QT_NO_MIMETYPE
+    return OtherFile;
+}
 
 void QSvgIconEngine::addFile(const QString &fileName, const QSize &,
                              QIcon::Mode mode, QIcon::State state)
 {
     if (!fileName.isEmpty()) {
-        QString abs = fileName;
-        if (fileName.at(0) != QLatin1Char(':'))
-            abs = QFileInfo(fileName).absoluteFilePath();
-        if (abs.endsWith(QLatin1String(".svg"), Qt::CaseInsensitive)
+         const QFileInfo fi(fileName);
+         const QString abs = fi.absoluteFilePath();
+         const FileType type = fileType(fi);
 #ifndef QT_NO_COMPRESS
-                || abs.endsWith(QLatin1String(".svgz"), Qt::CaseInsensitive)
-                || abs.endsWith(QLatin1String(".svg.gz"), Qt::CaseInsensitive))
+         if (type == SvgFile || type == CompressedSvgFile) {
+#else
+         if (type == SvgFile) {
 #endif
-        {
-            QSvgRenderer renderer(abs);
-            if (renderer.isValid()) {
-                d->stepSerialNum();
-                d->svgFiles.insert(d->hashKey(mode, state), abs);
-            }
-        } else {
-            QPixmap pm(abs);
-            if (!pm.isNull())
-                addPixmap(pm, mode, state);
-        }
+             QSvgRenderer renderer(abs);
+             if (renderer.isValid()) {
+                 d->stepSerialNum();
+                 d->svgFiles.insert(d->hashKey(mode, state), abs);
+             }
+         } else if (type == OtherFile) {
+             QPixmap pm(abs);
+             if (!pm.isNull())
+                 addPixmap(pm, mode, state);
+         }
     }
 }
 
@@ -227,7 +254,7 @@ void QSvgIconEngine::paint(QPainter *painter, const QRect &rect,
 {
     QSize pixmapSize = rect.size();
     if (painter->device())
-        pixmapSize *= painter->device()->devicePixelRatio();
+        pixmapSize *= painter->device()->devicePixelRatioF();
     painter->drawPixmap(rect, pixmap(pixmapSize, mode, state));
 }
 
@@ -253,8 +280,8 @@ bool QSvgIconEngine::read(QDataStream &in)
         in >> fileNames >> isCompressed >> *d->svgBuffers;
 #ifndef QT_NO_COMPRESS
         if (!isCompressed) {
-            foreach(int key, d->svgBuffers->keys())
-                d->svgBuffers->insert(key, qCompress(d->svgBuffers->value(key)));
+            for (auto it = d->svgBuffers->begin(), end = d->svgBuffers->end(); it != end; ++it)
+                it.value() = qCompress(it.value());
         }
 #else
         if (isCompressed) {
@@ -310,15 +337,15 @@ bool QSvgIconEngine::write(QDataStream &out) const
         QHash<int, QByteArray> svgBuffers;
         if (d->svgBuffers)
             svgBuffers = *d->svgBuffers;
-        foreach(int key, d->svgFiles.keys()) {
+        for (auto it = d->svgFiles.cbegin(), end = d->svgFiles.cend(); it != end; ++it) {
             QByteArray buf;
-            QFile f(d->svgFiles.value(key));
+            QFile f(it.value());
             if (f.open(QIODevice::ReadOnly))
                 buf = f.readAll();
 #ifndef QT_NO_COMPRESS
             buf = qCompress(buf);
 #endif
-            svgBuffers.insert(key, buf);
+            svgBuffers.insert(it.key(), buf);
         }
         out << d->svgFiles << isCompressed << svgBuffers;
         if (d->addedPixmaps)
