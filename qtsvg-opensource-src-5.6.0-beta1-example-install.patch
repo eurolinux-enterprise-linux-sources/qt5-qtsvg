@@ -1,0 +1,12 @@
+diff --git a/examples/svg/richtext/textobject/textobject.pro b/examples/svg/richtext/textobject/textobject.pro
+index 8892ae7..f9ec7c6 100644
+--- a/examples/svg/richtext/textobject/textobject.pro
++++ b/examples/svg/richtext/textobject/textobject.pro
+@@ -14,6 +14,6 @@ INSTALLS += target
+
+ wince*{
+     filesToDeploy.files = files/*.svg
+-    filesToDeploy.path = files
++    filesToDeploy.path = $$[QT_INSTALL_EXAMPLES]/svg/richtext/textobject/files
+     DEPLOYMENT += filesToDeploy
+ }
